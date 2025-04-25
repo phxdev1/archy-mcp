@@ -159,23 +159,44 @@ async function promptForGitHubToken() {
 }
 
 /**
+ * Prompt the user for their OpenRouter API key
+ * @returns {Promise<string>} The OpenRouter API key
+ */
+async function promptForOpenRouterApiKey() {
+  console.log('\nOpenRouter API Key Configuration');
+  console.log('-------------------------------');
+  console.log('An OpenRouter API key enables AI-powered diagram generation features.');
+  console.log('If you don\'t have an API key, you can sign up at: https://openrouter.ai/');
+  console.log('Leave blank if you don\'t want to use AI-powered diagram generation.\n');
+  
+  const apiKey = await promptUser('Enter your OpenRouter API key (or press Enter to skip): ');
+  return apiKey.trim();
+}
+
+/**
  * Update the MCP settings for both VS Code and Claude
  * @param {string} githubToken - The GitHub token to use
+ * @param {string} openRouterApiKey - The OpenRouter API key to use
  * @returns {Promise<boolean>} Whether the update was successful for at least one client
  */
-async function updateMcpSettings(githubToken) {
+async function updateMcpSettings(githubToken, openRouterApiKey) {
   const archyConfig = readArchyConfig();
   
   // Update the args path to use the absolute path to the build directory
   const buildPath = path.join(currentDir, 'build', 'index.js');
   archyConfig.mcpServers.archy.args = [buildPath];
   
+  // Initialize environment variables if not already present
+  archyConfig.mcpServers.archy.env = archyConfig.mcpServers.archy.env || {};
+  
   // Add the GitHub token to the environment variables if provided
   if (githubToken) {
-    archyConfig.mcpServers.archy.env = {
-      ...archyConfig.mcpServers.archy.env,
-      GITHUB_TOKEN: githubToken
-    };
+    archyConfig.mcpServers.archy.env.GITHUB_TOKEN = githubToken;
+  }
+  
+  // Add the OpenRouter API key to the environment variables if provided
+  if (openRouterApiKey) {
+    archyConfig.mcpServers.archy.env.OPENROUTER_API_KEY = openRouterApiKey;
   }
   
   // Make the build/index.js file executable
@@ -210,7 +231,10 @@ async function main() {
     // Prompt for GitHub token
     const githubToken = await promptForGitHubToken();
     
-    if (await updateMcpSettings(githubToken)) {
+    // Prompt for OpenRouter API key
+    const openRouterApiKey = await promptForOpenRouterApiKey();
+    
+    if (await updateMcpSettings(githubToken, openRouterApiKey)) {
       console.log('\nInstallation successful!');
       console.log('\nYou can now use the Archy MCP server with your MCP clients (VS Code and/or Claude).');
       
@@ -218,6 +242,12 @@ async function main() {
         console.log('GitHub token has been configured for repository analysis.');
       } else {
         console.log('No GitHub token was provided. GitHub repository analysis will be limited to public repositories.');
+      }
+      
+      if (openRouterApiKey) {
+        console.log('OpenRouter API key has been configured for AI-powered diagram generation.');
+      } else {
+        console.log('No OpenRouter API key was provided. AI-powered diagram generation will not be available.');
       }
     } else {
       console.error('\nInstallation failed. Please check the error messages above.');

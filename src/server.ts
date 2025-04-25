@@ -19,48 +19,28 @@ import { AxiosInstance } from 'axios';
 import { createGitHubApiClient, fetchRepositoryData, extractRepoInfoFromUrl } from './utils/github-api.js';
 import { generateDiagramFromText } from './generators/text-generator.js';
 import { generateDiagramFromGithub } from './generators/github-generator.js';
+import {
+  generateDiagramFromTextWithAI,
+  generateDiagramFromCode,
+  generateDiffDiagram
+} from './generators/langchain-generator.js';
+import { isApiConfigured } from './langchain/config.js';
+import { exportDiagramInMemory, exportDiagramToDataUrl, ImageFormat } from './utils/image-exporter.js';
+import { InMemoryGit } from './utils/git-memory.js';
+import { validateMermaidSyntax, validateAndFixMermaidSyntax } from './utils/mermaid-validator.js';
+import { addColorContrastDirective, applyAllStylingDirectives } from './utils/mermaid-styler.js';
+
+// Define a generic type for all tool arguments
+type ToolArguments = Record<string, any>;
 
 /**
- * Archy MCP Server
- * 
- * This class implements the core functionality of the Archy MCP server.
- * It handles the setup of the MCP server, defines the available tools,
- * and implements the logic for generating architectural diagrams.
- * 
- * The server provides the following tools:
- * - generate_diagram_from_text: Creates a diagram from a text description
- * - generate_diagram_from_github: Creates a diagram from a GitHub repository
- * - list_supported_diagram_types: Lists all supported diagram types with descriptions
- * 
- * @class ArchyServer
+ * Archy MCP Server class
  */
 export class ArchyServer {
-  /**
-   * The MCP server instance from the SDK
-   * @private
-   * @type {Server}
-   */
-  private server: Server;
+  server: Server;
+  axiosInstance: AxiosInstance;
 
-  /**
-   * Axios instance for making HTTP requests to external APIs
-   * @private
-   * @type {AxiosInstance}
-   */
-  private axiosInstance: AxiosInstance;
-
-  /**
-   * Creates a new instance of the ArchyServer.
-   * 
-   * This constructor initializes the MCP server with the necessary configuration,
-   * sets up the axios instance for HTTP requests, configures the tool handlers,
-   * and sets up error handling.
-   * 
-   * @constructor
-   * @param {string|undefined} githubToken - GitHub API token for authenticated requests
-   */
   constructor(githubToken?: string) {
-    // Initialize the MCP server with server information and capabilities
     this.server = new Server(
       {
         name: 'archy',
@@ -68,47 +48,93 @@ export class ArchyServer {
       },
       {
         capabilities: {
-          tools: {}, // Tool capabilities will be registered in setupToolHandlers
+          tools: {},
         },
       }
     );
 
-    // Configure axios instance for making HTTP requests to GitHub API
     this.axiosInstance = createGitHubApiClient(githubToken);
-
-    // Set up the tool handlers for the MCP server
     this.setupToolHandlers();
     
-    // Configure error handling for the server
-    // Log errors to the console for debugging
     this.server.onerror = (error) => console.error('[MCP Error]', error);
     
-    // Handle SIGINT signal (Ctrl+C) to gracefully shut down the server
     process.on('SIGINT', async () => {
       await this.server.close();
       process.exit(0);
     });
   }
 
-  /**
-   * Set up the tool handlers for the MCP server.
-   * 
-   * This method registers the request handlers for listing available tools
-   * and handling tool calls. It defines the tools that the server provides
-   * and their input schemas.
-   * 
-   * @private
-   * @returns {void}
-   */
-  private setupToolHandlers(): void {
-    // Register handler for listing available tools
-    // This handler responds to the ListTools request with a list of tools
-    // that this server provides, along with their descriptions and input schemas
-    this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
-      tools: [
+  setupToolHandlers() {
+    const diagramTypes = [
+      'flowchart',
+      'sequenceDiagram',
+      'classDiagram',
+      'stateDiagram',
+      'entityRelationshipDiagram',
+      'userJourney',
+      'gantt',
+      'pieChart',
+      'quadrantChart',
+      'requirementDiagram',
+      'gitGraph',
+      'c4Diagram'
+    ];
+
+    const tools = [
+      {
+        name: 'generate_diagram_from_text',
+        description: 'Generate a Mermaid diagram from a text description',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            description: {
+              type: 'string',
+              description: 'Text description of the diagram to generate',
+            },
+            diagramType: {
+              type: 'string',
+              description: 'Type of diagram to generate (flowchart, class, sequence, etc.)',
+              enum: diagramTypes
+            }
+          },
+          required: ['description', 'diagramType'],
+        },
+      },
+      {
+        name: 'generate_diagram_from_github',
+        description: 'Generate a Mermaid diagram from a GitHub repository',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            repoUrl: {
+              type: 'string',
+              description: 'URL of the GitHub repository',
+            },
+            diagramType: {
+              type: 'string',
+              description: 'Type of diagram to generate (flowchart, class, sequence, etc.)',
+              enum: diagramTypes
+            }
+          },
+          required: ['repoUrl', 'diagramType'],
+        },
+      },
+      {
+        name: 'list_supported_diagram_types',
+        description: 'List all supported diagram types with descriptions',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+          required: [],
+        },
+      }
+    ];
+
+    if (isApiConfigured()) {
+      tools.push(
         {
-          name: 'generate_diagram_from_text',
-          description: 'Generate a Mermaid diagram from a text description',
+          name: 'generate_diagram_from_text_with_ai',
+          description: 'Generate a Mermaid diagram from a text description using AI (LangChain with OpenRouter)',
           inputSchema: {
             type: 'object',
             properties: {
@@ -119,28 +145,92 @@ export class ArchyServer {
               diagramType: {
                 type: 'string',
                 description: 'Type of diagram to generate (flowchart, class, sequence, etc.)',
-                enum: [
-                  'flowchart', 
-                  'sequenceDiagram', 
-                  'classDiagram', 
-                  'stateDiagram', 
-                  'entityRelationshipDiagram',
-                  'userJourney',
-                  'gantt',
-                  'pieChart',
-                  'quadrantChart',
-                  'requirementDiagram',
-                  'gitGraph',
-                  'c4Diagram'
-                ]
+                enum: diagramTypes
               }
             },
             required: ['description', 'diagramType'],
           },
         },
         {
-          name: 'generate_diagram_from_github',
-          description: 'Generate a Mermaid diagram from a GitHub repository',
+          name: 'generate_diagram_from_code',
+          description: 'Generate a Mermaid diagram from code using AI',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              code: {
+                type: 'string',
+                description: 'The code to analyze and generate a diagram from',
+              },
+              diagramType: {
+                type: 'string',
+                description: 'Type of diagram to generate (flowchart, class, sequence, etc.)',
+                enum: diagramTypes
+              }
+            },
+            required: ['code', 'diagramType']
+          } as any,
+        },
+        {
+          name: 'generate_diff_diagram',
+          description: 'Generate a Mermaid diagram showing differences between two versions of code',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              beforeCode: {
+                type: 'string',
+                description: 'The code before changes',
+              },
+              afterCode: {
+                type: 'string',
+                description: 'The code after changes',
+              },
+              diagramType: {
+                type: 'string',
+                description: 'Type of diagram to generate (flowchart, class, sequence, etc.)',
+                enum: diagramTypes
+              }
+            },
+            required: ['beforeCode', 'afterCode', 'diagramType'],
+          } as any,
+        },
+        {
+          name: 'export_diagram_to_image',
+          description: 'Export a Mermaid diagram to an image format (PNG, SVG, or PDF)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              mermaidCode: {
+                type: 'string',
+                description: 'The Mermaid diagram code to export',
+              },
+              format: {
+                type: 'string',
+                description: 'The image format to export to',
+                enum: ['png', 'svg', 'pdf'],
+                default: 'png'
+              },
+              width: {
+                type: 'number',
+                description: 'The width of the image in pixels',
+                default: 800
+              },
+              height: {
+                type: 'number',
+                description: 'The height of the image in pixels',
+                default: 600
+              },
+              backgroundColor: {
+                type: 'string',
+                description: 'The background color of the image (CSS color or "transparent")',
+                default: '#ffffff'
+              }
+            },
+            required: ['mermaidCode'],
+          } as any,
+        },
+        {
+          name: 'generate_repository_evolution_diagram',
+          description: 'Generate a diagram showing the evolution of a repository over time',
           inputSchema: {
             type: 'object',
             properties: {
@@ -151,40 +241,28 @@ export class ArchyServer {
               diagramType: {
                 type: 'string',
                 description: 'Type of diagram to generate (flowchart, class, sequence, etc.)',
-                enum: [
-                  'flowchart', 
-                  'sequenceDiagram', 
-                  'classDiagram', 
-                  'stateDiagram', 
-                  'entityRelationshipDiagram',
-                  'userJourney',
-                  'gantt',
-                  'pieChart',
-                  'quadrantChart',
-                  'requirementDiagram',
-                  'gitGraph',
-                  'c4Diagram'
-                ]
+                enum: diagramTypes
+              },
+              filepath: {
+                type: 'string',
+                description: 'Path to a specific file to track (optional)',
+              },
+              commitLimit: {
+                type: 'number',
+                description: 'Maximum number of commits to analyze',
+                default: 10
               }
             },
             required: ['repoUrl', 'diagramType'],
-          },
-        },
-        {
-          name: 'list_supported_diagram_types',
-          description: 'List all supported diagram types with descriptions',
-          inputSchema: {
-            type: 'object',
-            properties: {},
-            required: [],
-          },
-        },
-      ],
+          } as any,
+        }
+      );
+    }
+
+    this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
+      tools
     }));
 
-    // Register handler for tool calls
-    // This handler processes requests to call a specific tool with arguments
-    // and routes the request to the appropriate method based on the tool name
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       switch (request.params.name) {
         case 'generate_diagram_from_text':
@@ -196,8 +274,22 @@ export class ArchyServer {
         case 'list_supported_diagram_types':
           return this.handleListSupportedDiagramTypes();
         
+        case 'generate_diagram_from_text_with_ai':
+          return this.handleGenerateDiagramFromTextWithAI(request.params.arguments);
+        
+        case 'generate_diagram_from_code':
+          return this.handleGenerateDiagramFromCode(request.params.arguments);
+        
+        case 'generate_diff_diagram':
+          return this.handleGenerateDiffDiagram(request.params.arguments);
+        
+        case 'export_diagram_to_image':
+          return this.handleExportDiagramToImage(request.params.arguments);
+        
+        case 'generate_repository_evolution_diagram':
+          return this.handleGenerateRepositoryEvolutionDiagram(request.params.arguments);
+        
         default:
-          // If the requested tool is not recognized, throw a MethodNotFound error
           throw new McpError(
             ErrorCode.MethodNotFound,
             `Unknown tool: ${request.params.name}`
@@ -206,46 +298,36 @@ export class ArchyServer {
     });
   }
 
-  /**
-   * Handle the generate_diagram_from_text tool request.
-   * 
-   * This method processes a request to generate a diagram from a text description.
-   * It validates the input arguments, generates a Mermaid diagram based on the
-   * specified diagram type and description, and returns the result.
-   * 
-   * @private
-   * @async
-   * @param {any} args - The arguments for the tool call
-   * @param {string} args.description - The text description to generate a diagram from
-   * @param {string} args.diagramType - The type of diagram to generate
-   * @returns {Promise<object>} A promise that resolves to the tool response
-   * @throws {McpError} If the required parameters are missing
-   */
-  private async handleGenerateDiagramFromText(args: any): Promise<object> {
-    // Validate that the required arguments are provided
+  async handleGenerateDiagramFromText(args: ToolArguments): Promise<object> {
     if (!args.description || !args.diagramType) {
       throw new McpError(
         ErrorCode.InvalidParams,
         'Missing required parameters: description and diagramType'
       );
     }
-
-    try {
-      // Generate a diagram based on the text description and diagram type
-      const mermaidCode = generateDiagramFromText(args.diagramType, args.description);
+try {
+  let mermaidCode = generateDiagramFromText(args.diagramType, args.description);
+  
+  // Validate and fix the Mermaid syntax
+  const validationResult = await validateMermaidSyntax(mermaidCode);
+  if (!validationResult.isValid) {
+    console.warn(`Mermaid syntax validation failed: ${validationResult.error?.message}`);
+    // Try to fix the syntax, passing the original description for context
+    mermaidCode = await validateAndFixMermaidSyntax(mermaidCode, args.diagramType, args.description);
+  }
+  
+  // Apply all styling directives for maximum visibility and clean layout
+  mermaidCode = applyAllStylingDirectives(mermaidCode);
       
-      // Return the generated diagram as Mermaid code
-      // The content is formatted as a markdown code block with the mermaid language
       return {
         content: [
           {
             type: 'text',
-            text: `Generated ${args.diagramType} diagram from text description:\n\n\`\`\`mermaid\n${mermaidCode}\n\`\`\``,
+            text: `Generated ${args.diagramType} diagram from text description with clean layout and optimal readability:\n\n\`\`\`mermaid\n${mermaidCode}\n\`\`\``,
           },
         ],
       };
     } catch (error) {
-      // If an error occurs during diagram generation, return an error response
       return {
         content: [
           {
@@ -258,24 +340,7 @@ export class ArchyServer {
     }
   }
 
-  /**
-   * Handle the generate_diagram_from_github tool request.
-   * 
-   * This method processes a request to generate a diagram from a GitHub repository.
-   * It validates the input arguments, extracts the repository owner and name from the URL,
-   * and generates a Mermaid diagram based on the specified diagram type.
-   * 
-   * @private
-   * @async
-   * @param {any} args - The arguments for the tool call
-   * @param {string} args.repoUrl - The URL of the GitHub repository
-   * @param {string} args.diagramType - The type of diagram to generate
-   * @returns {Promise<object>} A promise that resolves to the tool response
-   * @throws {McpError} If the required parameters are missing
-   * @throws {Error} If the GitHub repository URL is invalid
-   */
-  private async handleGenerateDiagramFromGithub(args: any): Promise<object> {
-    // Validate that the required arguments are provided
+  async handleGenerateDiagramFromGithub(args: ToolArguments): Promise<object> {
     if (!args.repoUrl || !args.diagramType) {
       throw new McpError(
         ErrorCode.InvalidParams,
@@ -284,24 +349,32 @@ export class ArchyServer {
     }
 
     try {
-      // Extract the owner and repository name from the GitHub URL
       const [owner, repo] = extractRepoInfoFromUrl(args.repoUrl);
       
-      // Fetch repository data and generate a diagram
       const repoData = await fetchRepositoryData(this.axiosInstance, owner, repo);
-      const mermaidCode = generateDiagramFromGithub(args.diagramType, owner, repo, repoData);
+      let mermaidCode = generateDiagramFromGithub(args.diagramType, owner, repo, repoData);
       
-      // Return the generated diagram as Mermaid code
+      // Validate and fix the Mermaid syntax
+      const validationResult = await validateMermaidSyntax(mermaidCode);
+      if (!validationResult.isValid) {
+        console.warn(`Mermaid syntax validation failed: ${validationResult.error?.message}`);
+        // Try to fix the syntax, passing repository info for context
+        const repoContext = `GitHub repository: ${owner}/${repo}`;
+        mermaidCode = await validateAndFixMermaidSyntax(mermaidCode, args.diagramType, repoContext);
+      }
+      
+      // Apply all styling directives for maximum visibility and clean layout
+      mermaidCode = applyAllStylingDirectives(mermaidCode);
+      
       return {
         content: [
           {
             type: 'text',
-            text: `Generated ${args.diagramType} diagram for ${owner}/${repo}:\n\n\`\`\`mermaid\n${mermaidCode}\n\`\`\``,
+            text: `Generated ${args.diagramType} diagram for ${owner}/${repo} with clean layout and optimal readability:\n\n\`\`\`mermaid\n${mermaidCode}\n\`\`\``,
           },
         ],
       };
     } catch (error) {
-      // If an error occurs during diagram generation, return an error response
       return {
         content: [
           {
@@ -314,16 +387,7 @@ export class ArchyServer {
     }
   }
 
-  /**
-   * Handle the list_supported_diagram_types tool request.
-   * 
-   * This method returns a list of all diagram types supported by the server,
-   * along with a brief description of each type.
-   * 
-   * @private
-   * @returns {object} The tool response containing the list of supported diagram types
-   */
-  private handleListSupportedDiagramTypes(): object {
+  handleListSupportedDiagramTypes(): object {
     return {
       content: [
         {
@@ -349,24 +413,328 @@ export class ArchyServer {
     };
   }
 
-  /**
-   * Run the MCP server.
-   * 
-   * This method connects the server to a transport (in this case, stdio)
-   * and starts listening for requests.
-   * 
-   * @async
-   * @returns {Promise<void>} A promise that resolves when the server is running
-   */
+  async handleGenerateDiagramFromTextWithAI(args: ToolArguments): Promise<object> {
+    if (!args.description || !args.diagramType) {
+      throw new McpError(
+        ErrorCode.InvalidParams,
+        'Missing required parameters: description and diagramType'
+      );
+    }
+
+    try {
+      if (!isApiConfigured()) {
+        throw new Error('OpenRouter API key not configured. Cannot use AI-powered diagram generation.');
+      }
+
+      let mermaidCode = await generateDiagramFromTextWithAI(
+        args.diagramType,
+        args.description,
+        args.useAdvancedModel || false
+      );
+      
+      // Validate and fix the Mermaid syntax
+      const validationResult = await validateMermaidSyntax(mermaidCode);
+      if (!validationResult.isValid) {
+        console.warn(`Mermaid syntax validation failed: ${validationResult.error?.message}`);
+        // Try to fix the syntax, passing the original description for context
+        mermaidCode = await validateAndFixMermaidSyntax(mermaidCode, args.diagramType, args.description);
+      }
+      
+      // Apply all styling directives for maximum visibility and clean layout
+      mermaidCode = applyAllStylingDirectives(mermaidCode);
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Generated ${args.diagramType} diagram from text description using AI with clean layout and optimal readability:\n\n\`\`\`mermaid\n${mermaidCode}\n\`\`\``,
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error generating diagram with AI: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  async handleGenerateDiagramFromCode(args: ToolArguments): Promise<object> {
+    if (!args.code || !args.diagramType) {
+      throw new McpError(
+        ErrorCode.InvalidParams,
+        'Missing required parameters: code and diagramType'
+      );
+    }
+
+    try {
+      if (!isApiConfigured()) {
+        throw new Error('OpenRouter API key not configured. Cannot use AI-powered code analysis.');
+      }
+
+      let mermaidCode = await generateDiagramFromCode(args.diagramType, args.code);
+      
+      // Validate and fix the Mermaid syntax
+      const validationResult = await validateMermaidSyntax(mermaidCode);
+      if (!validationResult.isValid) {
+        console.warn(`Mermaid syntax validation failed: ${validationResult.error?.message}`);
+        // Try to fix the syntax, passing the original code for context
+        mermaidCode = await validateAndFixMermaidSyntax(mermaidCode, args.diagramType, `Code context: ${args.code.substring(0, 200)}...`);
+      }
+      
+      // Apply all styling directives for maximum visibility and clean layout
+      mermaidCode = applyAllStylingDirectives(mermaidCode);
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Generated ${args.diagramType} diagram from code with clean layout and optimal readability:\n\n\`\`\`mermaid\n${mermaidCode}\n\`\`\``,
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error generating diagram from code: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  async handleGenerateDiffDiagram(args: ToolArguments): Promise<object> {
+    if (!args.beforeCode || !args.afterCode || !args.diagramType) {
+      throw new McpError(
+        ErrorCode.InvalidParams,
+        'Missing required parameters: beforeCode, afterCode, and diagramType'
+      );
+    }
+
+    try {
+      if (!isApiConfigured()) {
+        throw new Error('OpenRouter API key not configured. Cannot use AI-powered diff visualization.');
+      }
+
+      let mermaidCode = await generateDiffDiagram(
+        args.diagramType,
+        args.beforeCode,
+        args.afterCode
+      );
+      
+      // Validate and fix the Mermaid syntax
+      const validationResult = await validateMermaidSyntax(mermaidCode);
+      if (!validationResult.isValid) {
+        console.warn(`Mermaid syntax validation failed: ${validationResult.error?.message}`);
+        // Try to fix the syntax, passing diff context
+        const diffContext = `Diff diagram showing changes between code versions`;
+        mermaidCode = await validateAndFixMermaidSyntax(mermaidCode, args.diagramType, diffContext);
+      }
+      
+      // Apply all styling directives for maximum visibility and clean layout
+      mermaidCode = applyAllStylingDirectives(mermaidCode);
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Generated ${args.diagramType} diagram showing code differences with clean layout and optimal readability:\n\n\`\`\`mermaid\n${mermaidCode}\n\`\`\``,
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error generating diff diagram: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  async handleExportDiagramToImage(args: ToolArguments): Promise<object> {
+    if (!args.mermaidCode) {
+      throw new McpError(
+        ErrorCode.InvalidParams,
+        'Missing required parameter: mermaidCode'
+      );
+    }
+
+    try {
+      const format = (args.format || 'png') as ImageFormat;
+      const width = args.width || 800;
+      const height = args.height || 600;
+      const backgroundColor = args.backgroundColor || '#ffffff';
+
+      // Apply all styling directives for maximum visibility and clean layout
+      const mermaidCodeWithStyling = applyAllStylingDirectives(args.mermaidCode);
+      
+      const dataUrl = await exportDiagramToDataUrl(mermaidCodeWithStyling, {
+        format,
+        width,
+        height,
+        backgroundColor
+      });
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Exported diagram as ${format.toUpperCase()}:`,
+          },
+          {
+            type: 'image',
+            url: dataUrl,
+            title: `Diagram exported as ${format.toUpperCase()}`
+          }
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error exporting diagram to image: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  async handleGenerateRepositoryEvolutionDiagram(args: ToolArguments): Promise<object> {
+    if (!args.repoUrl || !args.diagramType) {
+      throw new McpError(
+        ErrorCode.InvalidParams,
+        'Missing required parameters: repoUrl and diagramType'
+      );
+    }
+
+    try {
+      const [owner, repo] = extractRepoInfoFromUrl(args.repoUrl);
+      
+      const commitLimit = args.commitLimit || 10;
+      
+      const git = new InMemoryGit();
+      
+      await git.clone(args.repoUrl);
+      
+      const commits = await git.getCommits(commitLimit);
+      
+      let mermaidCode: string;
+      let needsValidation = true;
+      
+      if (args.filepath) {
+        const fileEvolution = await git.getFileEvolution(args.filepath, commitLimit);
+        
+        if (args.diagramType === 'gitGraph') {
+          mermaidCode = `gitGraph
+    commit id: "${fileEvolution[0]?.sha?.substring(0, 7) || 'initial'}" tag: "initial"`;
+          
+          for (let i = 1; i < fileEvolution.length; i++) {
+            const commit = fileEvolution[i];
+            mermaidCode += `
+    commit id: "${commit.sha.substring(0, 7)}" tag: "${i}"`;
+          }
+        } else {
+          if (fileEvolution.length >= 2) {
+            const firstVersion = fileEvolution[fileEvolution.length - 1].content;
+            const lastVersion = fileEvolution[0].content;
+            
+            mermaidCode = await generateDiffDiagram(args.diagramType, firstVersion, lastVersion);
+          } else if (fileEvolution.length === 1) {
+            mermaidCode = await generateDiagramFromCode(args.diagramType, fileEvolution[0].content);
+          } else {
+            throw new Error(`File ${args.filepath} not found in repository history`);
+          }
+        }
+      } else {
+        if (args.diagramType === 'gitGraph') {
+          mermaidCode = `gitGraph
+    commit id: "${commits[0]?.sha?.substring(0, 7) || 'initial'}" tag: "initial"`;
+          
+          for (let i = 1; i < commits.length; i++) {
+            const commit = commits[i];
+            mermaidCode += `
+    commit id: "${commit.sha.substring(0, 7)}" tag: "${i}"`;
+          }
+        } else if (args.diagramType === 'flowchart') {
+          mermaidCode = `flowchart TD
+    subgraph "Repository Evolution"
+    Start([Start]) --> Commit1[Commit: ${commits[commits.length - 1]?.sha?.substring(0, 7) || 'initial'}]`;
+          
+          for (let i = commits.length - 2; i >= 0; i--) {
+            const commit = commits[i];
+            const nextCommit = commits[i + 1];
+            
+            const filesAdded = commit.files.filter(f => f.type === 'add').length;
+            const filesModified = commit.files.filter(f => f.type === 'modify').length;
+            const filesDeleted = commit.files.filter(f => f.type === 'delete').length;
+            
+            mermaidCode += `
+    Commit${commits.length - i} --> Commit${commits.length - i + 1}[Commit: ${commit.sha.substring(0, 7)}]
+    Commit${commits.length - i + 1} -- "+${filesAdded} -${filesDeleted} ~${filesModified}" --> Changes${commits.length - i + 1}[Changes]`;
+          }
+          
+          mermaidCode += `
+    Commit${commits.length} --> End([End])
+    end`;
+        } else {
+          mermaidCode = `${args.diagramType}
+    note "Repository evolution diagram for ${owner}/${repo} (${args.diagramType})"
+    note "This diagram type is not yet fully implemented for repository evolution"`;
+        }
+      }
+      
+      // Validate and fix the Mermaid syntax if needed
+      if (needsValidation) {
+        const validationResult = await validateMermaidSyntax(mermaidCode);
+        if (!validationResult.isValid) {
+          console.warn(`Mermaid syntax validation failed: ${validationResult.error?.message}`);
+          // Try to fix the syntax, passing repository info for context
+          const repoContext = `Repository evolution diagram for ${owner}/${repo}${args.filepath ? ` (file: ${args.filepath})` : ''}`;
+          mermaidCode = await validateAndFixMermaidSyntax(mermaidCode, args.diagramType, repoContext);
+        }
+      }
+      
+      // Apply all styling directives for maximum visibility and clean layout
+      mermaidCode = applyAllStylingDirectives(mermaidCode);
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Generated ${args.diagramType} diagram showing evolution of ${owner}/${repo}${args.filepath ? ` (file: ${args.filepath})` : ''} with clean layout and optimal readability:\n\n\`\`\`mermaid\n${mermaidCode}\n\`\`\``,
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error generating repository evolution diagram: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
   async run(): Promise<void> {
-    // Create a stdio transport for the server
-    // This allows the server to communicate with the client via standard input/output
     const transport = new StdioServerTransport();
-    
-    // Connect the server to the transport
     await this.server.connect(transport);
-    
-    // Log a message to indicate that the server is running
     console.error('Archy MCP server running on stdio');
   }
 }

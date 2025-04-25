@@ -19,8 +19,17 @@ import { ArchyServer } from './server.js';
 // access private repositories.
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 
-// Create an instance of the ArchyServer with the GitHub token
+// OpenRouter API key for AI-powered diagram generation.
+// If provided, this enables the AI-powered diagram generation features.
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+
+// Create an instance of the ArchyServer with the GitHub token and OpenRouter API key
 const server = new ArchyServer(GITHUB_TOKEN);
+
+// Log a message if OpenRouter API key is not configured
+if (!OPENROUTER_API_KEY) {
+  console.warn('OpenRouter API key not configured. AI-powered diagram generation will not be available.');
+}
 
 // Run the server and handle any errors
 server.run().catch(console.error);
@@ -29,5 +38,8 @@ server.run().catch(console.error);
 export * from './server.js';
 export * from './generators/text-generator.js';
 export * from './generators/github-generator.js';
+export * from './generators/langchain-generator.js';
 export * from './utils/entity-extractor.js';
 export * from './utils/github-api.js';
+export * from './langchain/config.js';
+export * from './langchain/chains.js';

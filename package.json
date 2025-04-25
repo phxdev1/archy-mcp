@@ -4,12 +4,12 @@
   "main": "build/index.js",
   "type": "module",
   "scripts": {
-    "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\"",
+    "build": "tsc --project tsconfig.json && node build.cjs",
     "start": "node build/index.js",
-    "dev": "nodemon --exec ts-node --esm src/index.ts",
-    "install-mcp": "node install-mcp.js",
-    "examples": "node examples/run-examples.js",
-    "test": "node test/basic.js"
+    "dev": "cross-env NODE_OPTIONS=--loader=ts-node/esm nodemon src/index.ts",
+    "install-mcp": "cross-env NODE_OPTIONS=--loader=ts-node/esm ts-node install-mcp.ts",
+    "examples": "cross-env NODE_OPTIONS=--loader=ts-node/esm ts-node examples/run-examples.ts",
+    "test": "cross-env NODE_OPTIONS=--loader=ts-node/esm ts-node test/basic.ts"
   },
   "keywords": [
     "mcp",
@@ -23,14 +23,31 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.10.2",
     "axios": "^1.9.0",
-    "typescript": "^5.8.3"
+    "isomorphic-git": "^1.30.1",
+    "langchain": "^0.1.37",
+    "memfs": "^4.17.0",
+    "mermaid": "^10.6.1",
+    "openai": "^4.28.0",
+    "puppeteer": "^21.11.0",
+    "typescript": "^5.8.3",
+    "zod": "^3.24.3"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
+    "cross-env": "^7.0.3",
+    "esbuild-node-tsc": "^2.0.5",
     "nodemon": "^3.1.10",
     "ts-node": "^10.9.2"
   },
   "bin": {
     "archy": "./build/index.js"
+  },
+  "ts-node": {
+    "esm": true,
+    "experimentalSpecifierResolution": "node",
+    "transpileOnly": true,
+    "compilerOptions": {
+      "module": "NodeNext"
+    }
   }
 }

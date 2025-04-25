@@ -63,13 +63,47 @@ This script:
 
 No need to manually edit JSON configuration files like some kind of cave-dwelling animal! The script handles all the tedious configuration work for you, so you can focus on creating beautiful diagrams instead of wrestling with file paths and permissions.
 
-### Configuration
+## Configuration
+
+## Configuration
 
 Archy can be configured using environment variables:
 
 - `GITHUB_TOKEN`: GitHub API token for authenticated requests (optional)
+- `OPENROUTER_API_KEY`: OpenRouter API key for AI-powered diagram generation (optional)
 
-## Usage
+### OpenRouter Integration
+
+Archy includes integration with OpenRouter through LangChain, enabling enhanced AI-powered diagram generation. When an OpenRouter API key is configured, additional tools become available:
+
+- **AI-Enhanced Text-to-Diagram Generation**: Generate more sophisticated diagrams from text descriptions
+- **Code-to-Diagram Generation**: Analyze code and generate appropriate diagrams
+- **Diff Visualization**: Generate diagrams showing differences between code versions
+
+To use these features:
+
+1. Sign up for an account at [OpenRouter](https://openrouter.ai/)
+2. Get your API key from the OpenRouter dashboard
+3. Set the `OPENROUTER_API_KEY` environment variable before running Archy
+
+### Image Export
+
+Archy supports exporting Mermaid diagrams to various image formats:
+
+- **PNG**: Raster image format suitable for web and documentation
+- **SVG**: Vector image format that scales without losing quality
+- **PDF**: Document format suitable for printing and sharing
+
+Images can be exported with customizable dimensions and background colors.
+
+### Repository Evolution Tracking
+
+Archy can analyze Git repositories to track their evolution over time:
+
+- **In-Memory Git**: Clone and analyze repositories without writing to the file system
+- **Commit History**: Track changes across multiple commits (limited to 10 by default)
+- **File Evolution**: Track how specific files change over time
+- **Evolution Visualization**: Generate diagrams showing the repository's evolution
 
 ### MCP Integration
 
@@ -128,6 +162,104 @@ Generates a Mermaid diagram from a GitHub repository.
 Lists all supported diagram types with descriptions.
 
 **Parameters:** None
+
+### AI-Powered Tools
+
+The following tools are available when an OpenRouter API key is configured:
+
+#### generate_diagram_from_text_with_ai
+
+Generates a Mermaid diagram from a text description using AI (LangChain with OpenRouter).
+
+**Parameters:**
+- `description`: Text description of the diagram to generate
+- `diagramType`: Type of diagram to generate (e.g., 'flowchart', 'classDiagram', etc.)
+- `useAdvancedModel`: (Optional) Whether to use a more advanced AI model for complex diagrams
+
+**Example:**
+```json
+{
+  "description": "A microservice architecture with user service, product service, and order service communicating through a message queue",
+  "diagramType": "flowchart",
+  "useAdvancedModel": true
+}
+```
+
+#### generate_diagram_from_code
+
+Generates a Mermaid diagram from code using AI.
+
+**Parameters:**
+- `code`: The code to analyze and generate a diagram from
+- `diagramType`: Type of diagram to generate (e.g., 'classDiagram', 'flowchart', etc.)
+
+**Example:**
+```json
+{
+  "code": "class User { ... } class AuthService { ... }",
+  "diagramType": "classDiagram"
+}
+```
+
+#### generate_diff_diagram
+
+Generates a Mermaid diagram showing differences between two versions of code.
+
+**Parameters:**
+- `beforeCode`: The code before changes
+- `afterCode`: The code after changes
+- `diagramType`: Type of diagram to generate (e.g., 'classDiagram', 'flowchart', etc.)
+
+**Example:**
+```json
+{
+  "beforeCode": "class User { ... }",
+  "afterCode": "class User { ... additional methods ... }",
+  "diagramType": "classDiagram"
+}
+```
+
+#### export_diagram_to_image
+
+Exports a Mermaid diagram to an image format (PNG, SVG, or PDF).
+
+**Parameters:**
+- `mermaidCode`: The Mermaid diagram code to export
+- `format`: (Optional) The image format to export to ('png', 'svg', 'pdf', default: 'png')
+- `width`: (Optional) The width of the image in pixels (default: 800)
+- `height`: (Optional) The height of the image in pixels (default: 600)
+- `backgroundColor`: (Optional) The background color of the image (CSS color or "transparent", default: '#ffffff')
+
+**Example:**
+```json
+{
+  "mermaidCode": "flowchart TD\n  A[Start] --> B[End]",
+  "format": "svg",
+  "width": 1200,
+  "height": 800,
+  "backgroundColor": "#f0f0f0"
+}
+```
+
+#### generate_repository_evolution_diagram
+
+Generates a diagram showing the evolution of a repository over time.
+
+**Parameters:**
+- `repoUrl`: URL of the GitHub repository
+- `diagramType`: Type of diagram to generate (e.g., 'gitGraph', 'flowchart', etc.)
+- `filepath`: (Optional) Path to a specific file to track
+- `commitLimit`: (Optional) Maximum number of commits to analyze (default: 10)
+
+**Example:**
+```json
+{
+  "repoUrl": "https://github.com/username/repository",
+  "diagramType": "gitGraph",
+  "filepath": "src/main.js",
+  "commitLimit": 5
+}
+```
 
 ## Examples
 
