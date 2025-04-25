@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "archy": {
+      "command": "node",
+      "args": ["${__dirname}/build/index.js"],
+      "env": {
+        "GITHUB_TOKEN": ""
+      },
+      "disabled": false,
+      "alwaysAllow": []
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "name": "archy",
+  "version": "1.0.0",
+  "main": "build/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\"",
+    "start": "node build/index.js",
+    "dev": "nodemon --exec ts-node --esm src/index.ts",
+    "install-mcp": "node install-mcp.js",
+    "examples": "node examples/run-examples.js",
+    "test": "node test/basic.js"
+  },
+  "keywords": [
+    "mcp",
+    "architecture",
+    "diagram",
+    "mermaid"
+  ],
+  "author": "",
+  "license": "ISC",
+  "description": "An MCP server for generating architectural diagrams using Mermaid syntax",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.10.2",
+    "axios": "^1.9.0",
+    "typescript": "^5.8.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "nodemon": "^3.1.10",
+    "ts-node": "^10.9.2"
+  },
+  "bin": {
+    "archy": "./build/index.js"
+  }
+}
