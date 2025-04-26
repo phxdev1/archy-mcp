@@ -35,7 +35,7 @@ Archy is an MCP (Model Context Protocol) server that generates architectural dia
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/archy.git
+   git clone https://github.com/phxdev1/archy.git
    cd archy
    ```
 
