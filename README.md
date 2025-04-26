@@ -1,6 +1,8 @@
 <a href="https://glama.ai/mcp/servers/@phxdev1/archy-mcp">
   <img width="380" height="200" src="https://glama.ai/mcp/servers/@phxdev1/archy-mcp/badge" />
 </a>
+
+
 # Archy - Architectural Diagram Builder
 
 Archy is an MCP (Model Context Protocol) server that generates architectural diagrams using Mermaid syntax. It can process both natural language descriptions and GitHub repository URLs to create various types of diagrams.
