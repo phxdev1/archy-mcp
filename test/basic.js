@@ -1,6 +1,6 @@
 /**
  * Basic Test for Archy MCP Server
- * 
+ *
  * This script tests the basic functionality of the Archy MCP server
  * by simulating MCP client requests and verifying the responses.
  */
@@ -15,7 +15,7 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
 // Path to the server executable
-const serverPath = path.join(rootDir, 'build', 'index.js');
+const serverPath = path.join(rootDir, 'build', 'src', 'index.js');
 
 /**
  * Simulates an MCP client request to the server
@@ -28,27 +28,27 @@ async function sendRequest(request) {
     const server = spawn('node', [serverPath], {
       stdio: ['pipe', 'pipe', 'pipe']
     });
-    
+
     let stdout = '';
     let stderr = '';
-    
+
     // Collect stdout data
     server.stdout.on('data', (data) => {
       stdout += data.toString();
     });
-    
+
     // Collect stderr data
     server.stderr.on('data', (data) => {
       stderr += data.toString();
     });
-    
+
     // Handle process exit
     server.on('close', (code) => {
       if (code !== 0) {
         reject(new Error(`Server process exited with code ${code}\nStderr: ${stderr}`));
         return;
       }
-      
+
       try {
         // Parse the response
         const lines = stdout.trim().split('\n');
@@ -58,7 +58,7 @@ async function sendRequest(request) {
         reject(new Error(`Failed to parse server response: ${error.message}\nStdout: ${stdout}`));
       }
     });
-    
+
     // Send the request to the server
     server.stdin.write(JSON.stringify(request) + '\n');
     server.stdin.end();
@@ -70,7 +70,7 @@ async function sendRequest(request) {
  */
 async function runTests() {
   console.log('Running basic tests for Archy MCP server...\n');
-  
+
   try {
     // Test 1: Initialize the server
     console.log('Test 1: Initialize the server');
@@ -85,12 +85,12 @@ async function runTests() {
         }
       }
     };
-    
+
     const initResponse = await sendRequest(initRequest);
     console.log('Server initialized successfully');
     console.log('Server capabilities:', initResponse[0]?.result?.capabilities);
     console.log('');
-    
+
     // Test 2: List available tools
     console.log('Test 2: List available tools');
     const listToolsRequest = {
@@ -98,7 +98,7 @@ async function runTests() {
       id: 2,
       method: 'tools/list'
     };
-    
+
     const listToolsResponse = await sendRequest(listToolsRequest);
     const tools = listToolsResponse[0]?.result?.tools || [];
     console.log(`Found ${tools.length} tools:`);
@@ -106,7 +106,7 @@ async function runTests() {
       console.log(`- ${tool.name}: ${tool.description}`);
     });
     console.log('');
-    
+
     console.log('All tests passed!');
   } catch (error) {
     console.error('Test failed:', error.message);
