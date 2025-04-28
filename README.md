@@ -2,7 +2,6 @@
   <img width="380" height="200" src="https://glama.ai/mcp/servers/@phxdev1/archy-mcp/badge" />
 </a>
 
-
 # Archy - Architectural Diagram Builder
 
 Archy is an MCP (Model Context Protocol) server that generates architectural diagrams using Mermaid syntax. It can process both natural language descriptions and GitHub repository URLs to create various types of diagrams.
@@ -31,17 +30,19 @@ Archy is an MCP (Model Context Protocol) server that generates architectural dia
 
 - Node.js (v16 or higher)
 - npm (v7 or higher)
-- TypeScript (v5.8 or higher, included in dependencies)
+- TypeScript (v5.8 or higher, included in devDependencies)
 
 ### Install from Source
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/phxdev1/archy.git
    cd archy
    ```
 
 2. Install dependencies:
+
    ```bash
    npm install
    ```
@@ -50,7 +51,7 @@ Archy is an MCP (Model Context Protocol) server that generates architectural dia
    ```bash
    npm run build
    ```
-   This compiles the TypeScript source files to JavaScript in the `build` directory.
+   This compiles the TypeScript source files to JavaScript in the `build/src` directory.
 
 ### Automated MCP Installation
 
@@ -61,6 +62,7 @@ npm run install-mcp
 ```
 
 This script:
+
 - Automatically detects the correct MCP settings locations for your operating system
 - Updates the MCP configuration files for VS Code and Claude
 - Prompts for a GitHub token for repository analysis (optional)
@@ -119,7 +121,7 @@ To use Archy with an MCP client, add it to your MCP settings file if you're a ma
   "mcpServers": {
     "archy": {
       "command": "node",
-      "args": ["/path/to/archy/build/index.js"],
+      "args": ["/path/to/archy/build/src/index.js"],
       "env": {
         "GITHUB_TOKEN": "your-github-token"
       }
@@ -135,10 +137,12 @@ To use Archy with an MCP client, add it to your MCP settings file if you're a ma
 Generates a Mermaid diagram from a text description.
 
 **Parameters:**
+
 - `description`: Text description of the diagram to generate
 - `diagramType`: Type of diagram to generate (e.g., 'flowchart', 'classDiagram', etc.)
 
 **Example:**
+
 ```json
 {
   "description": "A user authentication system with login, registration, and password reset",
@@ -151,10 +155,12 @@ Generates a Mermaid diagram from a text description.
 Generates a Mermaid diagram from a GitHub repository.
 
 **Parameters:**
+
 - `repoUrl`: URL of the GitHub repository
 - `diagramType`: Type of diagram to generate (e.g., 'classDiagram', 'sequenceDiagram', etc.)
 
 **Example:**
+
 ```json
 {
   "repoUrl": "https://github.com/username/repository",
@@ -177,11 +183,13 @@ The following tools are available when an OpenRouter API key is configured:
 Generates a Mermaid diagram from a text description using AI (LangChain with OpenRouter).
 
 **Parameters:**
+
 - `description`: Text description of the diagram to generate
 - `diagramType`: Type of diagram to generate (e.g., 'flowchart', 'classDiagram', etc.)
 - `useAdvancedModel`: (Optional) Whether to use a more advanced AI model for complex diagrams
 
 **Example:**
+
 ```json
 {
   "description": "A microservice architecture with user service, product service, and order service communicating through a message queue",
@@ -195,10 +203,12 @@ Generates a Mermaid diagram from a text description using AI (LangChain with Ope
 Generates a Mermaid diagram from code using AI.
 
 **Parameters:**
+
 - `code`: The code to analyze and generate a diagram from
 - `diagramType`: Type of diagram to generate (e.g., 'classDiagram', 'flowchart', etc.)
 
 **Example:**
+
 ```json
 {
   "code": "class User { ... } class AuthService { ... }",
@@ -211,11 +221,13 @@ Generates a Mermaid diagram from code using AI.
 Generates a Mermaid diagram showing differences between two versions of code.
 
 **Parameters:**
+
 - `beforeCode`: The code before changes
 - `afterCode`: The code after changes
 - `diagramType`: Type of diagram to generate (e.g., 'classDiagram', 'flowchart', etc.)
 
 **Example:**
+
 ```json
 {
   "beforeCode": "class User { ... }",
@@ -229,6 +241,7 @@ Generates a Mermaid diagram showing differences between two versions of code.
 Exports a Mermaid diagram to an image format (PNG, SVG, or PDF).
 
 **Parameters:**
+
 - `mermaidCode`: The Mermaid diagram code to export
 - `format`: (Optional) The image format to export to ('png', 'svg', 'pdf', default: 'png')
 - `width`: (Optional) The width of the image in pixels (default: 800)
@@ -236,6 +249,7 @@ Exports a Mermaid diagram to an image format (PNG, SVG, or PDF).
 - `backgroundColor`: (Optional) The background color of the image (CSS color or "transparent", default: '#ffffff')
 
 **Example:**
+
 ```json
 {
   "mermaidCode": "flowchart TD\n  A[Start] --> B[End]",
@@ -251,12 +265,14 @@ Exports a Mermaid diagram to an image format (PNG, SVG, or PDF).
 Generates a diagram showing the evolution of a repository over time.
 
 **Parameters:**
+
 - `repoUrl`: URL of the GitHub repository
 - `diagramType`: Type of diagram to generate (e.g., 'gitGraph', 'flowchart', etc.)
 - `filepath`: (Optional) Path to a specific file to track
 - `commitLimit`: (Optional) Maximum number of commits to analyze (default: 10)
 
 **Example:**
+
 ```json
 {
   "repoUrl": "https://github.com/username/repository",
@@ -278,6 +294,7 @@ generate_diagram_from_text({
 ```
 
 Result:
+
 ```mermaid
 classDiagram
   class Book {
@@ -309,6 +326,7 @@ generate_diagram_from_github({
 ```
 
 Result:
+
 ```mermaid
 flowchart TD
   A[Client] --> B[API Gateway]
@@ -409,11 +427,11 @@ Archy is built with TypeScript using the following configuration:
 ```
 
 Key TypeScript features used:
+
 - ES2020 target for modern JavaScript features
 - NodeNext module resolution for compatibility with Node.js
 - Declaration files generation for better type support
 - Source maps for easier debugging
-
 
 ### Project Structure
 
