@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/phxdev1-archy-mcp-badge.png)](https://mseep.ai/app/phxdev1-archy-mcp)
+
 <a href="https://glama.ai/mcp/servers/@phxdev1/archy-mcp">
   <img width="380" height="200" src="https://glama.ai/mcp/servers/@phxdev1/archy-mcp/badge" />
 </a>
